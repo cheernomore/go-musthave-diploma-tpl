@@ -31,3 +31,10 @@ type Order struct {
 	Accrual    *decimal.Decimal
 	UploadedAt time.Time
 }
+
+// PendingOrder is a projection of an order awaiting accrual processing,
+// carrying only the fields the worker needs.
+type PendingOrder struct {
+	Number string
+	UserID uuid.UUID
+}

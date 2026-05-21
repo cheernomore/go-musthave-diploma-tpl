@@ -11,17 +11,12 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/cheernomore/go-musthave-diploma-tpl/internal/accrual"
+	"github.com/cheernomore/go-musthave-diploma-tpl/internal/domain"
 )
-
-// PendingOrder is a single order awaiting accrual processing.
-type PendingOrder struct {
-	Number string
-	UserID uuid.UUID
-}
 
 // Store is the persistence layer required by the worker.
 type Store interface {
-	ClaimPending(ctx context.Context, limit int) ([]PendingOrder, error)
+	ClaimPending(ctx context.Context, limit int) ([]domain.PendingOrder, error)
 	ApplyAccrualResult(ctx context.Context, number string, userID uuid.UUID, status string, accrual *decimal.Decimal) error
 	ResetStatus(ctx context.Context, number string) error
 }
@@ -66,7 +61,7 @@ func New(store Store, client AccrualClient, log *slog.Logger, workers int, pollI
 
 // Run starts the worker pool and returns when ctx is cancelled.
 func (w *Worker) Run(ctx context.Context) error {
-	jobs := make(chan PendingOrder)
+	jobs := make(chan domain.PendingOrder)
 
 	var wg sync.WaitGroup
 	wg.Add(w.workers)
@@ -118,7 +113,7 @@ func (w *Worker) Run(ctx context.Context) error {
 	}
 }
 
-func (w *Worker) process(ctx context.Context, p PendingOrder) {
+func (w *Worker) process(ctx context.Context, p domain.PendingOrder) {
 	res, err := w.client.GetOrder(ctx, p.Number)
 	if err != nil {
 		var rl *accrual.RateLimitedError

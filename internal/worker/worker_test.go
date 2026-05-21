@@ -13,11 +13,12 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/cheernomore/go-musthave-diploma-tpl/internal/accrual"
+	"github.com/cheernomore/go-musthave-diploma-tpl/internal/domain"
 )
 
 type fakeStore struct {
 	mu      sync.Mutex
-	pending []PendingOrder
+	pending []domain.PendingOrder
 	applied []appliedCall
 	resets  []string
 }
@@ -28,7 +29,7 @@ type appliedCall struct {
 	accrual *decimal.Decimal
 }
 
-func (s *fakeStore) ClaimPending(_ context.Context, _ int) ([]PendingOrder, error) {
+func (s *fakeStore) ClaimPending(_ context.Context, _ int) ([]domain.PendingOrder, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := s.pending
@@ -65,7 +66,7 @@ func discardLogger() *slog.Logger {
 
 func TestWorkerProcessesProcessed(t *testing.T) {
 	accrualValue := decimal.NewFromInt(100)
-	store := &fakeStore{pending: []PendingOrder{{Number: "1", UserID: uuid.New()}}}
+	store := &fakeStore{pending: []domain.PendingOrder{{Number: "1", UserID: uuid.New()}}}
 	client := fakeClient{result: accrual.Result{Status: accrual.StatusProcessed, Accrual: &accrualValue}}
 	w := New(store, client, discardLogger(), 1, 5*time.Millisecond)
 
@@ -81,7 +82,7 @@ func TestWorkerProcessesProcessed(t *testing.T) {
 }
 
 func TestWorkerResetsOnNotRegistered(t *testing.T) {
-	store := &fakeStore{pending: []PendingOrder{{Number: "1", UserID: uuid.New()}}}
+	store := &fakeStore{pending: []domain.PendingOrder{{Number: "1", UserID: uuid.New()}}}
 	client := fakeClient{err: accrual.ErrNotRegistered}
 	w := New(store, client, discardLogger(), 1, 5*time.Millisecond)
 
@@ -97,7 +98,7 @@ func TestWorkerResetsOnNotRegistered(t *testing.T) {
 }
 
 func TestWorkerPausesOnRateLimit(t *testing.T) {
-	store := &fakeStore{pending: []PendingOrder{{Number: "1", UserID: uuid.New()}}}
+	store := &fakeStore{pending: []domain.PendingOrder{{Number: "1", UserID: uuid.New()}}}
 	client := fakeClient{err: &accrual.RateLimitedError{RetryAfter: time.Hour}}
 	w := New(store, client, discardLogger(), 1, 5*time.Millisecond)
 
@@ -116,7 +117,7 @@ func TestWorkerPausesOnRateLimit(t *testing.T) {
 }
 
 func TestWorkerInvalidStatus(t *testing.T) {
-	store := &fakeStore{pending: []PendingOrder{{Number: "1", UserID: uuid.New()}}}
+	store := &fakeStore{pending: []domain.PendingOrder{{Number: "1", UserID: uuid.New()}}}
 	client := fakeClient{result: accrual.Result{Status: accrual.StatusInvalid}}
 	w := New(store, client, discardLogger(), 1, 5*time.Millisecond)
 

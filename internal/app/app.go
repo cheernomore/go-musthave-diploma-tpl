@@ -31,13 +31,11 @@ func Run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	defer db.Close()
 	log.Info("database connected and migrated")
 
-	userRepo := postgres.NewUserRepository(db.Pool)
-	orderRepo := postgres.NewOrderRepository(db.Pool)
-	balanceRepo := postgres.NewBalanceRepository(db.Pool)
+	orderRepo := db.Orders()
 
-	authSvc := auth.New(userRepo, cfg.JWTSecret, cfg.JWTTTL)
+	authSvc := auth.New(db.Users(), cfg.JWTSecret, cfg.JWTTTL)
 	orderSvc := order.New(orderRepo)
-	balanceSvc := balance.New(balanceRepo)
+	balanceSvc := balance.New(db.Balances())
 
 	router := httpapi.NewRouter(httpapi.Deps{
 		Logger:   log,
@@ -54,7 +52,7 @@ func Run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	}
 
 	accrualClient := accrual.NewClient(cfg.AccrualSystemAddress, 5*time.Second)
-	wrk := worker.New(workerStore{repo: orderRepo}, accrualClient, log, cfg.AccrualWorkers, cfg.AccrualPollInterval)
+	wrk := worker.New(orderRepo, accrualClient, log, cfg.AccrualWorkers, cfg.AccrualPollInterval)
 
 	g, gctx := errgroup.WithContext(ctx)
 

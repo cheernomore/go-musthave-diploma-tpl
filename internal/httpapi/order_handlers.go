@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/shopspring/decimal"
 
 	"github.com/cheernomore/go-musthave-diploma-tpl/internal/domain"
 )
@@ -69,7 +68,7 @@ func (h *OrderHandlers) Upload(w http.ResponseWriter, r *http.Request) {
 type orderResponse struct {
 	Number     string             `json:"number"`
 	Status     domain.OrderStatus `json:"status"`
-	Accrual    *decimal.Decimal   `json:"accrual,omitempty"`
+	Accrual    *JSONDecimal       `json:"accrual,omitempty"`
 	UploadedAt string             `json:"uploaded_at"`
 }
 
@@ -92,10 +91,15 @@ func (h *OrderHandlers) List(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := make([]orderResponse, 0, len(orders))
 	for _, o := range orders {
+		var accrual *JSONDecimal
+		if o.Accrual != nil {
+			v := JSONDecimal(*o.Accrual)
+			accrual = &v
+		}
 		resp = append(resp, orderResponse{
 			Number:     o.Number,
 			Status:     o.Status,
-			Accrual:    o.Accrual,
+			Accrual:    accrual,
 			UploadedAt: o.UploadedAt.Format(time.RFC3339),
 		})
 	}

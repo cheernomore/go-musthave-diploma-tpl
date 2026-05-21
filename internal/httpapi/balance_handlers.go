@@ -33,8 +33,8 @@ func NewBalanceHandlers(svc BalanceService, log *slog.Logger) *BalanceHandlers {
 }
 
 type balanceResponse struct {
-	Current   decimal.Decimal `json:"current"`
-	Withdrawn decimal.Decimal `json:"withdrawn"`
+	Current   JSONDecimal `json:"current"`
+	Withdrawn JSONDecimal `json:"withdrawn"`
 }
 
 // Get handles GET /api/user/balance.
@@ -51,7 +51,10 @@ func (h *BalanceHandlers) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(balanceResponse{Current: b.Current, Withdrawn: b.Withdrawn})
+	_ = json.NewEncoder(w).Encode(balanceResponse{
+		Current:   JSONDecimal(b.Current),
+		Withdrawn: JSONDecimal(b.Withdrawn),
+	})
 }
 
 type withdrawRequest struct {
@@ -85,9 +88,9 @@ func (h *BalanceHandlers) Withdraw(w http.ResponseWriter, r *http.Request) {
 }
 
 type withdrawalResponse struct {
-	Order       string          `json:"order"`
-	Sum         decimal.Decimal `json:"sum"`
-	ProcessedAt string          `json:"processed_at"`
+	Order       string      `json:"order"`
+	Sum         JSONDecimal `json:"sum"`
+	ProcessedAt string      `json:"processed_at"`
 }
 
 // Withdrawals handles GET /api/user/withdrawals.
@@ -111,7 +114,7 @@ func (h *BalanceHandlers) Withdrawals(w http.ResponseWriter, r *http.Request) {
 	for _, it := range list {
 		resp = append(resp, withdrawalResponse{
 			Order:       it.OrderNumber,
-			Sum:         it.Sum,
+			Sum:         JSONDecimal(it.Sum),
 			ProcessedAt: it.ProcessedAt.Format(time.RFC3339),
 		})
 	}

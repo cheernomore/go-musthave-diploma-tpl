@@ -8,18 +8,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
-)
 
-// PendingOrder is a minimal projection of an order that needs accrual
-// processing, carrying just the data the worker requires.
-type PendingOrder struct {
-	Number string
-	UserID uuid.UUID
-}
+	"github.com/cheernomore/go-musthave-diploma-tpl/internal/domain"
+)
 
 // ClaimPending atomically marks up to limit unfinished orders as PROCESSING
 // and returns them. Concurrent workers will not see overlapping batches.
-func (r *OrderRepository) ClaimPending(ctx context.Context, limit int) ([]PendingOrder, error) {
+func (r *OrderRepository) ClaimPending(ctx context.Context, limit int) ([]domain.PendingOrder, error) {
 	rows, err := r.pool.Query(ctx,
 		`UPDATE orders
 		 SET status = 'PROCESSING'
@@ -38,9 +33,9 @@ func (r *OrderRepository) ClaimPending(ctx context.Context, limit int) ([]Pendin
 	}
 	defer rows.Close()
 
-	var out []PendingOrder
+	var out []domain.PendingOrder
 	for rows.Next() {
-		var p PendingOrder
+		var p domain.PendingOrder
 		if err := rows.Scan(&p.Number, &p.UserID); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}

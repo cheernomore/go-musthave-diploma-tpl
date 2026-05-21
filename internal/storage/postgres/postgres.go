@@ -8,10 +8,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// DB is a thin wrapper around a pgx connection pool. It owns the lifecycle of
-// the pool and exposes it to repositories.
+// DB owns a PostgreSQL connection pool and acts as a factory for the
+// repositories used by the gophermart service. The underlying pool is not
+// exposed; callers obtain typed repositories instead.
 type DB struct {
-	Pool *pgxpool.Pool
+	pool *pgxpool.Pool
 }
 
 // New opens a connection pool to the database described by databaseURI and
@@ -43,12 +44,21 @@ func New(ctx context.Context, databaseURI string) (*DB, error) {
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 
-	return &DB{Pool: pool}, nil
+	return &DB{pool: pool}, nil
 }
+
+// Users returns a repository for user records.
+func (d *DB) Users() *UserRepository { return NewUserRepository(d.pool) }
+
+// Orders returns a repository for orders and accrual processing operations.
+func (d *DB) Orders() *OrderRepository { return NewOrderRepository(d.pool) }
+
+// Balances returns a repository for balances and withdrawals.
+func (d *DB) Balances() *BalanceRepository { return NewBalanceRepository(d.pool) }
 
 // Close releases all resources held by the pool.
 func (d *DB) Close() {
-	if d != nil && d.Pool != nil {
-		d.Pool.Close()
+	if d != nil && d.pool != nil {
+		d.pool.Close()
 	}
 }
