@@ -10,10 +10,16 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/cheernomore/go-musthave-diploma-tpl/internal/app"
 	"github.com/cheernomore/go-musthave-diploma-tpl/internal/config"
 	"github.com/cheernomore/go-musthave-diploma-tpl/internal/logger"
 )
+
+func init() {
+	decimal.MarshalJSONWithoutQuotes = true
+}
 
 func main() {
 	cfg, err := config.Load(os.Args[1:])
