@@ -44,8 +44,17 @@ func TestWithdrawInvalidLuhn(t *testing.T) {
 
 func TestWithdrawZeroSum(t *testing.T) {
 	svc := New(&fakeRepo{})
-	if err := svc.Withdraw(context.Background(), uuid.New(), "12345678903", decimal.Zero); err == nil {
-		t.Fatal("expected error on zero sum")
+	err := svc.Withdraw(context.Background(), uuid.New(), "12345678903", decimal.Zero)
+	if !errors.Is(err, domain.ErrInvalidWithdrawalSum) {
+		t.Fatalf("want ErrInvalidWithdrawalSum, got %v", err)
+	}
+}
+
+func TestWithdrawNegativeSum(t *testing.T) {
+	svc := New(&fakeRepo{})
+	err := svc.Withdraw(context.Background(), uuid.New(), "12345678903", decimal.NewFromInt(-1))
+	if !errors.Is(err, domain.ErrInvalidWithdrawalSum) {
+		t.Fatalf("want ErrInvalidWithdrawalSum, got %v", err)
 	}
 }
 

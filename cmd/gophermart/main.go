@@ -16,13 +16,13 @@ import (
 )
 
 func main() {
-	cfg, err := config.Load(os.Args[1:])
+	log := logger.New(os.Getenv("LOG_LEVEL"))
+
+	cfg, err := config.Load(os.Args[1:], log)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "config: %v\n", err)
 		os.Exit(2)
 	}
-
-	log := logger.New(os.Getenv("LOG_LEVEL"))
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

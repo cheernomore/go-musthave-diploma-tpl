@@ -1,8 +1,11 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 )
@@ -33,10 +36,11 @@ type Config struct {
 
 // Load parses the configuration from the provided argument list (typically
 // os.Args[1:]) and the process environment. It returns an error if the flag
-// set cannot be parsed or if mandatory fields are missing.
-func Load(args []string) (*Config, error) {
+// set cannot be parsed or if mandatory fields are missing. When JWT_SECRET
+// is not provided, a random 32-byte secret is generated and a warning is
+// emitted through the supplied logger so operators notice the ephemeral key.
+func Load(args []string, log *slog.Logger) (*Config, error) {
 	cfg := &Config{
-		JWTSecret:           "gophermart-dev-secret",
 		JWTTTL:              24 * time.Hour,
 		AccrualWorkers:      4,
 		AccrualPollInterval: time.Second,
@@ -73,6 +77,16 @@ func Load(args []string) (*Config, error) {
 	}
 	if cfg.AccrualSystemAddress == "" {
 		return nil, fmt.Errorf("accrual system address is required (flag -r or ACCRUAL_SYSTEM_ADDRESS)")
+	}
+	if cfg.JWTSecret == "" {
+		buf := make([]byte, 32)
+		if _, err := rand.Read(buf); err != nil {
+			return nil, fmt.Errorf("generate JWT secret: %w", err)
+		}
+		cfg.JWTSecret = hex.EncodeToString(buf)
+		if log != nil {
+			log.Warn("JWT_SECRET not provided; using an ephemeral random key — tokens will not survive restarts")
+		}
 	}
 
 	return cfg, nil

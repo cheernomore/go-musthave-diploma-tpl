@@ -61,6 +61,7 @@ func TestWithdrawStatuses(t *testing.T) {
 		{"ok", nil, http.StatusOK},
 		{"insufficient", domain.ErrInsufficientFunds, http.StatusPaymentRequired},
 		{"bad luhn", domain.ErrInvalidOrderNumber, http.StatusUnprocessableEntity},
+		{"invalid sum", domain.ErrInvalidWithdrawalSum, http.StatusBadRequest},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
