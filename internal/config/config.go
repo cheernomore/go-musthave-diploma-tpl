@@ -36,7 +36,7 @@ type Config struct {
 // set cannot be parsed or if mandatory fields are missing.
 func Load(args []string) (*Config, error) {
 	cfg := &Config{
-		JWTSecret:           "gophermart-dev-secret",
+		JWTSecret:           "",
 		JWTTTL:              24 * time.Hour,
 		AccrualWorkers:      4,
 		AccrualPollInterval: time.Second,
@@ -73,6 +73,9 @@ func Load(args []string) (*Config, error) {
 	}
 	if cfg.AccrualSystemAddress == "" {
 		return nil, fmt.Errorf("accrual system address is required (flag -r or ACCRUAL_SYSTEM_ADDRESS)")
+	}
+	if cfg.JWTSecret == "" {
+		return nil, fmt.Errorf("JWT secret is required (JWT_SECRET)")
 	}
 
 	return cfg, nil

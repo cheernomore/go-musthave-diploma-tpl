@@ -79,6 +79,8 @@ func (h *BalanceHandlers) Withdraw(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	case errors.Is(err, domain.ErrInvalidOrderNumber):
 		http.Error(w, "invalid order number", http.StatusUnprocessableEntity)
+	case errors.Is(err, domain.ErrInvalidWithdrawalSum):
+		http.Error(w, "invalid withdrawal sum", http.StatusBadRequest)
 	case errors.Is(err, domain.ErrInsufficientFunds):
 		http.Error(w, "insufficient funds", http.StatusPaymentRequired)
 	default:

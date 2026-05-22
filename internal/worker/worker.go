@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/cheernomore/go-musthave-diploma-tpl/internal/accrual"
 	"github.com/cheernomore/go-musthave-diploma-tpl/internal/domain"
@@ -59,58 +60,42 @@ func New(store Store, client AccrualClient, log *slog.Logger, workers int, pollI
 	}
 }
 
-// Run starts the worker pool and returns when ctx is cancelled.
+// Run polls the storage for pending orders and dispatches them to a bounded
+// pool of goroutines backed by errgroup. It returns when ctx is cancelled,
+// waiting for in-flight jobs to finish.
 func (w *Worker) Run(ctx context.Context) error {
-	jobs := make(chan domain.PendingOrder)
-
-	var wg sync.WaitGroup
-	wg.Add(w.workers)
-	for i := 0; i < w.workers; i++ {
-		go func() {
-			defer wg.Done()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case job, ok := <-jobs:
-					if !ok {
-						return
-					}
-					w.process(ctx, job)
-				}
-			}
-		}()
-	}
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(w.workers)
 
 	ticker := time.NewTicker(w.pollInterval)
 	defer ticker.Stop()
 
+loop:
 	for {
 		select {
-		case <-ctx.Done():
-			close(jobs)
-			wg.Wait()
-			return nil
+		case <-gctx.Done():
+			break loop
 		case <-ticker.C:
 			if !w.canPoll() {
 				continue
 			}
-			batch, err := w.store.ClaimPending(ctx, w.batchSize)
+			batch, err := w.store.ClaimPending(gctx, w.batchSize)
 			if err != nil {
 				w.log.Error("claim pending", "err", err)
 				continue
 			}
 			for _, p := range batch {
-				select {
-				case <-ctx.Done():
-					close(jobs)
-					wg.Wait()
+				p := p
+				g.Go(func() error {
+					w.process(gctx, p)
 					return nil
-				case jobs <- p:
-				}
+				})
 			}
 		}
 	}
+
+	_ = g.Wait()
+	return nil
 }
 
 func (w *Worker) process(ctx context.Context, p domain.PendingOrder) {

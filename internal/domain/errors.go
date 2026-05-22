@@ -31,4 +31,8 @@ var (
 	// ErrInsufficientFunds is returned when a withdrawal exceeds the current
 	// balance.
 	ErrInsufficientFunds = errors.New("insufficient funds")
+
+	// ErrInvalidWithdrawalSum is returned when a withdrawal sum is not
+	// strictly positive.
+	ErrInvalidWithdrawalSum = errors.New("withdrawal sum must be positive")
 )

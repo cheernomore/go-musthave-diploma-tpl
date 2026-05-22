@@ -52,7 +52,7 @@ func (s *Service) Withdraw(ctx context.Context, userID uuid.UUID, order string, 
 		return domain.ErrInvalidOrderNumber
 	}
 	if sum.Sign() <= 0 {
-		return fmt.Errorf("sum must be positive")
+		return domain.ErrInvalidWithdrawalSum
 	}
 	w := domain.Withdrawal{
 		ID:          uuid.New(),
