@@ -1,8 +1,14 @@
 package config
 
 import (
+	"io"
+	"log/slog"
 	"testing"
 )
+
+func discardLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
+}
 
 func TestLoadFlags(t *testing.T) {
 	t.Setenv("RUN_ADDRESS", "")
@@ -14,7 +20,7 @@ func TestLoadFlags(t *testing.T) {
 		"-a", ":9090",
 		"-d", "postgres://u:p@localhost/db",
 		"-r", "http://accrual:8081",
-	})
+	}, discardLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -39,7 +45,7 @@ func TestLoadEnvOverridesFlags(t *testing.T) {
 		"-a", ":9090",
 		"-d", "postgres://flag/db",
 		"-r", "http://flag-accrual",
-	})
+	}, discardLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -60,7 +66,7 @@ func TestLoadMissingRequired(t *testing.T) {
 	t.Setenv("ACCRUAL_SYSTEM_ADDRESS", "")
 	t.Setenv("JWT_SECRET", "test-secret")
 
-	if _, err := Load([]string{"-a", ":8080"}); err == nil {
+	if _, err := Load([]string{"-a", ":8080"}, discardLogger()); err == nil {
 		t.Fatal("expected error for missing required fields")
 	}
 }
@@ -75,14 +81,12 @@ func TestLoadGeneratesJWTSecretWhenMissing(t *testing.T) {
 		"-a", ":9090",
 		"-d", "postgres://u:p@localhost/db",
 		"-r", "http://accrual:8081",
-	})
+	}, discardLogger())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !cfg.JWTSecretGenerated {
-		t.Fatal("expected JWTSecretGenerated to be true")
-	}
-	if len(cfg.JWTSecret) < 32 {
-		t.Fatalf("generated secret too short: %d chars", len(cfg.JWTSecret))
+	// 32 random bytes hex-encoded → exactly 64 characters.
+	if got := len(cfg.JWTSecret); got != 64 {
+		t.Fatalf("generated secret length = %d, want 64", got)
 	}
 }

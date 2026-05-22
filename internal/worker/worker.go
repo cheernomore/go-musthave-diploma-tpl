@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -39,6 +40,14 @@ type Worker struct {
 
 	pauseMu    sync.Mutex
 	pauseUntil time.Time
+
+	errCount atomic.Uint64
+}
+
+// ErrorCount returns the cumulative number of processing errors observed by
+// the worker since it was created. The counter is safe to read concurrently.
+func (w *Worker) ErrorCount() uint64 {
+	return w.errCount.Load()
 }
 
 // New returns a configured Worker. The number of goroutines and the polling
@@ -81,11 +90,11 @@ loop:
 			}
 			batch, err := w.store.ClaimPending(gctx, w.batchSize)
 			if err != nil {
+				w.errCount.Add(1)
 				w.log.Error("claim pending", "err", err)
 				continue
 			}
 			for _, p := range batch {
-				p := p
 				g.Go(func() error {
 					w.process(gctx, p)
 					return nil
@@ -111,6 +120,7 @@ func (w *Worker) process(ctx context.Context, p domain.PendingOrder) {
 		case errors.Is(err, context.Canceled):
 			return
 		default:
+			w.errCount.Add(1)
 			w.log.Warn("accrual fetch failed", "number", p.Number, "err", err)
 			_ = w.store.ResetStatus(ctx, p.Number)
 		}
@@ -120,10 +130,12 @@ func (w *Worker) process(ctx context.Context, p domain.PendingOrder) {
 	switch res.Status {
 	case accrual.StatusProcessed:
 		if err := w.store.ApplyAccrualResult(ctx, p.Number, p.UserID, "PROCESSED", res.Accrual); err != nil {
+			w.errCount.Add(1)
 			w.log.Error("apply processed", "number", p.Number, "err", err)
 		}
 	case accrual.StatusInvalid:
 		if err := w.store.ApplyAccrualResult(ctx, p.Number, p.UserID, "INVALID", nil); err != nil {
+			w.errCount.Add(1)
 			w.log.Error("apply invalid", "number", p.Number, "err", err)
 		}
 	default:

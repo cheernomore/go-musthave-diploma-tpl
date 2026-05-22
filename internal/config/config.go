@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 )
@@ -15,9 +16,6 @@ import (
 // DatabaseURI is the PostgreSQL connection string in libpq or URL form.
 // AccrualSystemAddress is the base URL of the external accrual service.
 // JWTSecret is the symmetric key used to sign authentication tokens.
-// JWTSecretGenerated is true when JWTSecret was not provided by the caller
-// and was generated at startup; callers can warn about ephemeral signing
-// keys in that case.
 // JWTTTL is the lifetime of issued authentication tokens.
 // AccrualWorkers is the number of goroutines polling the accrual system.
 // AccrualPollInterval is the interval between polling cycles.
@@ -27,9 +25,8 @@ type Config struct {
 	DatabaseURI          string
 	AccrualSystemAddress string
 
-	JWTSecret          string
-	JWTSecretGenerated bool
-	JWTTTL             time.Duration
+	JWTSecret string
+	JWTTTL    time.Duration
 
 	AccrualWorkers      int
 	AccrualPollInterval time.Duration
@@ -39,10 +36,11 @@ type Config struct {
 
 // Load parses the configuration from the provided argument list (typically
 // os.Args[1:]) and the process environment. It returns an error if the flag
-// set cannot be parsed or if mandatory fields are missing.
-func Load(args []string) (*Config, error) {
+// set cannot be parsed or if mandatory fields are missing. When JWT_SECRET
+// is not provided, a random 32-byte secret is generated and a warning is
+// emitted through the supplied logger so operators notice the ephemeral key.
+func Load(args []string, log *slog.Logger) (*Config, error) {
 	cfg := &Config{
-		JWTSecret:           "",
 		JWTTTL:              24 * time.Hour,
 		AccrualWorkers:      4,
 		AccrualPollInterval: time.Second,
@@ -86,7 +84,9 @@ func Load(args []string) (*Config, error) {
 			return nil, fmt.Errorf("generate JWT secret: %w", err)
 		}
 		cfg.JWTSecret = hex.EncodeToString(buf)
-		cfg.JWTSecretGenerated = true
+		if log != nil {
+			log.Warn("JWT_SECRET not provided; using an ephemeral random key — tokens will not survive restarts")
+		}
 	}
 
 	return cfg, nil
