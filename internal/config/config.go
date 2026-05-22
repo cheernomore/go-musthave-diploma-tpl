@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"os"
@@ -13,6 +15,9 @@ import (
 // DatabaseURI is the PostgreSQL connection string in libpq or URL form.
 // AccrualSystemAddress is the base URL of the external accrual service.
 // JWTSecret is the symmetric key used to sign authentication tokens.
+// JWTSecretGenerated is true when JWTSecret was not provided by the caller
+// and was generated at startup; callers can warn about ephemeral signing
+// keys in that case.
 // JWTTTL is the lifetime of issued authentication tokens.
 // AccrualWorkers is the number of goroutines polling the accrual system.
 // AccrualPollInterval is the interval between polling cycles.
@@ -22,8 +27,9 @@ type Config struct {
 	DatabaseURI          string
 	AccrualSystemAddress string
 
-	JWTSecret string
-	JWTTTL    time.Duration
+	JWTSecret          string
+	JWTSecretGenerated bool
+	JWTTTL             time.Duration
 
 	AccrualWorkers      int
 	AccrualPollInterval time.Duration
@@ -75,7 +81,12 @@ func Load(args []string) (*Config, error) {
 		return nil, fmt.Errorf("accrual system address is required (flag -r or ACCRUAL_SYSTEM_ADDRESS)")
 	}
 	if cfg.JWTSecret == "" {
-		return nil, fmt.Errorf("JWT secret is required (JWT_SECRET)")
+		buf := make([]byte, 32)
+		if _, err := rand.Read(buf); err != nil {
+			return nil, fmt.Errorf("generate JWT secret: %w", err)
+		}
+		cfg.JWTSecret = hex.EncodeToString(buf)
+		cfg.JWTSecretGenerated = true
 	}
 
 	return cfg, nil

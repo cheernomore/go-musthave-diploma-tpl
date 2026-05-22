@@ -65,18 +65,24 @@ func TestLoadMissingRequired(t *testing.T) {
 	}
 }
 
-func TestLoadRequiresJWTSecret(t *testing.T) {
+func TestLoadGeneratesJWTSecretWhenMissing(t *testing.T) {
 	t.Setenv("RUN_ADDRESS", "")
 	t.Setenv("DATABASE_URI", "")
 	t.Setenv("ACCRUAL_SYSTEM_ADDRESS", "")
 	t.Setenv("JWT_SECRET", "")
 
-	_, err := Load([]string{
+	cfg, err := Load([]string{
 		"-a", ":9090",
 		"-d", "postgres://u:p@localhost/db",
 		"-r", "http://accrual:8081",
 	})
-	if err == nil {
-		t.Fatal("expected error when JWT_SECRET is missing")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !cfg.JWTSecretGenerated {
+		t.Fatal("expected JWTSecretGenerated to be true")
+	}
+	if len(cfg.JWTSecret) < 32 {
+		t.Fatalf("generated secret too short: %d chars", len(cfg.JWTSecret))
 	}
 }

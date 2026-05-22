@@ -31,6 +31,10 @@ func Run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	defer db.Close()
 	log.Info("database connected and migrated")
 
+	if cfg.JWTSecretGenerated {
+		log.Warn("JWT_SECRET not provided; using an ephemeral random key — tokens will not survive restarts")
+	}
+
 	orderRepo := db.Orders()
 
 	authSvc := auth.New(db.Users(), cfg.JWTSecret, cfg.JWTTTL)
